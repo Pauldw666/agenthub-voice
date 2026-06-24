@@ -1,0 +1,269 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7f3;
+  --panel: #ffffff;
+  --ink: #142027;
+  --muted: #66737a;
+  --line: #d8dfd7;
+  --accent: #0f6b5f;
+  --accent-strong: #094a42;
+  --warn: #9b3f24;
+  --blue: #275d8c;
+  --shadow: 0 16px 40px rgba(20, 32, 39, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  min-height: 44px;
+  border: 0;
+  cursor: pointer;
+}
+
+.app-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 14px max(28px, env(safe-area-inset-bottom));
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 2px 18px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1.15;
+}
+
+h1 {
+  font-size: 1.8rem;
+}
+
+h2 {
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.state-pill {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #eef3ed;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.state-pill.is-ready {
+  border-color: rgba(15, 107, 95, 0.32);
+  background: #e2f3ee;
+  color: var(--accent-strong);
+}
+
+.command-panel,
+.settings-panel,
+.recent-panel {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+select,
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfa;
+  color: var(--ink);
+}
+
+select,
+input {
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+textarea {
+  display: block;
+  min-height: 168px;
+  resize: vertical;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+textarea:focus,
+input:focus,
+select:focus {
+  outline: 2px solid rgba(15, 107, 95, 0.28);
+  border-color: var(--accent);
+}
+
+.target-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.target-button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8faf7;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.target-button.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.action-row,
+.settings-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.primary-button,
+.submit-button,
+.secondary-button,
+.plain-button {
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.primary-button {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.primary-button.is-listening {
+  background: var(--warn);
+}
+
+.submit-button,
+.secondary-button {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.plain-button {
+  border: 1px solid var(--line);
+  background: #f8faf7;
+  color: var(--ink);
+}
+
+.danger {
+  color: var(--warn);
+}
+
+.hint,
+.status-line {
+  min-height: 22px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.status-line.is-error {
+  color: var(--warn);
+}
+
+.status-line.is-ok {
+  color: var(--accent-strong);
+}
+
+.settings-grid {
+  display: grid;
+  gap: 10px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.quick-list {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfa;
+  color: var(--ink);
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+@media (max-width: 430px) {
+  .app-shell {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .target-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .action-row,
+  .settings-actions {
+    grid-template-columns: 1fr;
+  }
+}

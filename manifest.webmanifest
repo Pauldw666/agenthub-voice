@@ -1,0 +1,17 @@
+{
+  "name": "AgentHub Voice",
+  "short_name": "AgentHub",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f3",
+  "theme_color": "#101820",
+  "description": "Voice command app for AgentHub mobile task dispatch.",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

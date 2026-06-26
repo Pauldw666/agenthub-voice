@@ -38,6 +38,8 @@ https://pauldw666.github.io/agenthub-voice/
 4. Tap `保存设置`.
 5. Choose `自动判断`, `Win`, `Mac`, or `两边`.
 6. Tap `开始语音`, speak the task, review the text, then tap `提交任务`.
+7. Watch `任务进度` for import, claim, processing, done/blocked status, and
+   completion results.
 
 The app writes a Quick Command to the private AgentHub repository's
 `MOBILE_INBOX.md`. The Windows/Mac AgentHub workers then import and process it.

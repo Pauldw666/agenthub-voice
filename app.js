@@ -3,12 +3,15 @@ const DEFAULTS = {
   repo: "codex-agenthub",
   branch: "main",
   path: "MOBILE_INBOX.md",
+  requestsPath: "REQUESTS.md",
   language: "zh-CN",
   target: "auto",
 };
 
 const STORAGE_KEY = "agenthubVoiceSettings";
 const TOKEN_KEY = "agenthubVoiceToken";
+const SELECTED_REQUEST_KEY = "agenthubSelectedRequest";
+const REFRESH_INTERVAL_MS = 20000;
 
 const els = {
   connectionState: document.querySelector("#connectionState"),
@@ -26,8 +29,11 @@ const els = {
   clearToken: document.querySelector("#clearToken"),
   toggleSettings: document.querySelector("#toggleSettings"),
   settingsBody: document.querySelector("#settingsBody"),
-  refreshInbox: document.querySelector("#refreshInbox"),
-  quickCommands: document.querySelector("#quickCommands"),
+  refreshTasks: document.querySelector("#refreshTasks"),
+  autoRefresh: document.querySelector("#autoRefresh"),
+  progressStatus: document.querySelector("#progressStatus"),
+  taskList: document.querySelector("#taskList"),
+  taskDetail: document.querySelector("#taskDetail"),
   targetButtons: Array.from(document.querySelectorAll(".target-button")),
 };
 
@@ -35,6 +41,8 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition = null;
 let listening = false;
 let target = DEFAULTS.target;
+let refreshTimer = null;
+let selectedRequestId = localStorage.getItem(SELECTED_REQUEST_KEY) || "";
 
 function loadSettings() {
   try {
@@ -54,6 +62,7 @@ function currentSettings() {
     repo: els.repoInput.value.trim() || DEFAULTS.repo,
     branch: els.branchInput.value.trim() || DEFAULTS.branch,
     path: DEFAULTS.path,
+    requestsPath: DEFAULTS.requestsPath,
     language: els.languageSelect.value || DEFAULTS.language,
     target,
   };
@@ -99,8 +108,9 @@ function base64ToUtf8(base64) {
   return new TextDecoder().decode(bytes);
 }
 
-function apiUrl(settings) {
-  return `https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/contents/${encodeURIComponent(settings.path)}`;
+function apiUrl(settings, path = settings.path) {
+  const encodedPath = path.split("/").map((part) => encodeURIComponent(part)).join("/");
+  return `https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/contents/${encodedPath}`;
 }
 
 function githubHeaders(token) {
@@ -111,11 +121,11 @@ function githubHeaders(token) {
   };
 }
 
-async function fetchInbox(settings, token) {
-  const url = `${apiUrl(settings)}?ref=${encodeURIComponent(settings.branch)}`;
+async function fetchRepoFile(settings, token, path) {
+  const url = `${apiUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
   const response = await fetch(url, { headers: githubHeaders(token) });
   if (!response.ok) {
-    throw new Error(`GitHub 读取失败：${response.status}`);
+    throw new Error(`GitHub 读取 ${path} 失败：${response.status}`);
   }
   const payload = await response.json();
   return {
@@ -123,6 +133,10 @@ async function fetchInbox(settings, token) {
     text: base64ToUtf8(payload.content || ""),
     htmlUrl: payload.html_url,
   };
+}
+
+async function fetchInbox(settings, token) {
+  return fetchRepoFile(settings, token, settings.path);
 }
 
 function targetPrefix(selectedTarget) {
@@ -204,7 +218,8 @@ async function submitCommand() {
     const payload = await response.json();
     els.commandText.value = "";
     setStatus(`已提交，等待 AgentHub worker 处理。${payload.commit?.sha?.slice(0, 7) || ""}`, "ok");
-    await loadQuickCommands();
+    await loadTaskDashboard();
+    startAutoRefresh();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : String(error), "error");
   } finally {
@@ -270,33 +285,236 @@ function toggleListening() {
   }
 }
 
-function extractQuickCommands(inboxText) {
+function parseQuickCommandEntries(inboxText) {
   const lines = inboxText.replace(/\r\n/g, "\n").split("\n");
   const start = lines.findIndex((line) => line.trim() === "## Quick Commands");
-  if (start === -1) return "没有找到 Quick Commands。";
-  const commands = [];
+  if (start === -1) return [];
+  const entries = [];
   for (let index = start + 1; index < lines.length; index += 1) {
     const line = lines[index];
     if (line.startsWith("## ")) break;
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("<!--")) continue;
-    commands.push(trimmed);
+    const withoutBullet = trimmed.replace(/^[-*]\s+/, "");
+    const imported = withoutBullet.match(/\(imported as (R-\d+)\)/);
+    entries.push({
+      source: "quick",
+      requestId: imported?.[1] || "",
+      title: withoutBullet.replace(/\s*\(imported as R-\d+\)\s*$/, "").trim(),
+    });
   }
-  return commands.length ? commands.slice(0, 12).join("\n") : "暂无快速命令。";
+  return entries;
 }
 
-async function loadQuickCommands() {
+function parseRequestTable(requestsText) {
+  return requestsText
+    .split("\n")
+    .filter((line) => line.startsWith("| R-"))
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim()).filter(Boolean);
+      return {
+        requestId: parts[0] || "",
+        status: parts[1] || "",
+        requestedBy: parts[2] || "",
+        assignedTo: parts[3] || "",
+        title: parts[4] || "",
+        updated: parts[5] || "",
+        source: "request",
+      };
+    })
+    .filter((request) => request.requestId);
+}
+
+function requestNumber(requestId) {
+  const number = Number(requestId.replace("R-", ""));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function statusLabel(status) {
+  const labels = {
+    pending: "待导入",
+    open: "待领取",
+    claimed: "处理中",
+    done: "完成",
+    blocked: "阻塞",
+  };
+  return labels[status] || status || "未知";
+}
+
+function taskSortValue(item) {
+  if (item.requestId) return requestNumber(item.requestId);
+  return 999999;
+}
+
+function buildTaskItems(inboxText, requestsText) {
+  const quickEntries = parseQuickCommandEntries(inboxText);
+  const requests = parseRequestTable(requestsText);
+  const byId = new Map(requests.map((request) => [request.requestId, request]));
+  const used = new Set();
+  const fromQuick = quickEntries.map((entry) => {
+    if (!entry.requestId) {
+      return { ...entry, status: "pending", assignedTo: "等待 worker", updated: "" };
+    }
+    used.add(entry.requestId);
+    const request = byId.get(entry.requestId);
+    return request ? { ...entry, ...request, title: request.title || entry.title } : { ...entry, status: "pending", assignedTo: "等待同步", updated: "" };
+  });
+  const extraMobileRequests = requests
+    .filter((request) => request.requestedBy === "mobile-user" && !used.has(request.requestId))
+    .sort((a, b) => requestNumber(b.requestId) - requestNumber(a.requestId));
+  return [...fromQuick, ...extraMobileRequests]
+    .sort((a, b) => taskSortValue(b) - taskSortValue(a))
+    .slice(0, 12);
+}
+
+function setProgress(message, type = "") {
+  els.progressStatus.textContent = message;
+  els.progressStatus.classList.toggle("is-error", type === "error");
+  els.progressStatus.classList.toggle("is-ok", type === "ok");
+}
+
+function renderTaskList(items, settings, token) {
+  els.taskList.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "还没有手机任务。";
+    els.taskList.append(empty);
+    els.taskDetail.textContent = "提交第一条任务后，这里会显示导入、领取和完成结果。";
+    return;
+  }
+  if (!selectedRequestId || !items.some((item) => item.requestId === selectedRequestId)) {
+    selectedRequestId = items.find((item) => item.requestId)?.requestId || "";
+  }
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `task-card ${item.requestId === selectedRequestId ? "is-active" : ""}`;
+
+    const meta = document.createElement("span");
+    meta.className = "task-meta";
+    const left = document.createElement("span");
+    left.textContent = item.requestId ? `${item.requestId} -> ${item.assignedTo || "未分配"}` : "等待导入 -> worker";
+    const badge = document.createElement("span");
+    badge.className = `status-badge is-${item.status || "pending"}`;
+    badge.textContent = statusLabel(item.status);
+    meta.append(left, badge);
+
+    const title = document.createElement("span");
+    title.className = "task-card-title";
+    title.textContent = item.title || "未命名任务";
+    button.append(meta, title);
+
+    button.addEventListener("click", async () => {
+      selectedRequestId = item.requestId || "";
+      localStorage.setItem(SELECTED_REQUEST_KEY, selectedRequestId);
+      renderTaskList(items, settings, token);
+      if (item.requestId) {
+        await loadTaskDetail(item, settings, token);
+      } else {
+        els.taskDetail.textContent = `这条命令还在等待 AgentHub worker 导入。\n\n${item.title}`;
+      }
+    });
+    els.taskList.append(button);
+  });
+}
+
+function readMarkdownField(text, field) {
+  const line = text.split("\n").find((item) => item.startsWith(`${field}:`));
+  return line ? line.slice(field.length + 1).trim() : "";
+}
+
+function readMarkdownSection(text, heading) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex((line) => line.trim() === `### ${heading}` || line.trim() === `## ${heading}`);
+  if (start === -1) return "";
+  const body = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.startsWith("## ") || line.startsWith("### ")) break;
+    body.push(line);
+  }
+  return body.join("\n").trim();
+}
+
+function summarizeDetail(item, detailText) {
+  const goal = readMarkdownSection(detailText, "Goal");
+  const result = readMarkdownSection(detailText, "Result");
+  const claimBy = readMarkdownField(detailText, "Claimed by");
+  const claimAt = readMarkdownField(detailText, "Claimed at");
+  const completedBy = readMarkdownField(detailText, "Completed by");
+  const completedAt = readMarkdownField(detailText, "Completed at");
+  const lines = [
+    `${item.requestId} | ${statusLabel(item.status)} | ${item.assignedTo}`,
+    "",
+    "任务",
+    item.title || goal || "未命名任务",
+  ];
+  if (goal && goal !== item.title) {
+    lines.push("", "目标", goal);
+  }
+  if (claimBy) {
+    lines.push("", "领取", `${claimBy}${claimAt ? ` @ ${claimAt}` : ""}`);
+  }
+  if (completedBy) {
+    lines.push("", "完成", `${completedBy}${completedAt ? ` @ ${completedAt}` : ""}`);
+  }
+  if (result) {
+    lines.push("", "结果", result);
+  } else if (item.status === "open") {
+    lines.push("", "当前进度", "已经导入请求，等待目标机器领取。");
+  } else if (item.status === "claimed") {
+    lines.push("", "当前进度", "目标机器已经领取，正在处理或等待下一次 worker tick 写回结果。");
+  }
+  return lines.join("\n");
+}
+
+async function loadTaskDetail(item, settings, token) {
+  try {
+    const detail = await fetchRepoFile(settings, token, `requests/${item.requestId}.md`);
+    els.taskDetail.textContent = summarizeDetail(item, detail.text);
+  } catch (error) {
+    els.taskDetail.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function loadTaskDashboard() {
   const token = els.tokenInput.value.trim() || localStorage.getItem(TOKEN_KEY);
   if (!token) {
-    els.quickCommands.textContent = "保存 token 后可以读取最近手机命令。";
+    setProgress("保存 token 后可以读取任务进度。");
+    els.taskList.replaceChildren();
+    els.taskDetail.textContent = "尚未连接。";
     return;
   }
   try {
-    const inbox = await fetchInbox(currentSettings(), token);
-    els.quickCommands.textContent = extractQuickCommands(inbox.text);
+    const settings = currentSettings();
+    const [inbox, requests] = await Promise.all([
+      fetchInbox(settings, token),
+      fetchRepoFile(settings, token, settings.requestsPath),
+    ]);
+    const items = buildTaskItems(inbox.text, requests.text);
+    renderTaskList(items, settings, token);
+    const latest = items.find((item) => item.requestId === selectedRequestId) || items.find((item) => item.requestId);
+    if (latest?.requestId) {
+      selectedRequestId = latest.requestId;
+      localStorage.setItem(SELECTED_REQUEST_KEY, selectedRequestId);
+      await loadTaskDetail(latest, settings, token);
+    } else if (items[0]) {
+      els.taskDetail.textContent = `这条命令还在等待 AgentHub worker 导入。\n\n${items[0].title}`;
+    }
+    const active = items.filter((item) => item.status !== "done").length;
+    setProgress(active ? `已刷新：${active} 条任务还在进行或等待导入。` : "已刷新：最近手机任务都已完成。", "ok");
   } catch (error) {
-    els.quickCommands.textContent = error instanceof Error ? error.message : String(error);
+    setProgress(error instanceof Error ? error.message : String(error), "error");
   }
+}
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (!els.autoRefresh.checked) return;
+  refreshTimer = window.setInterval(() => {
+    loadTaskDashboard();
+  }, REFRESH_INTERVAL_MS);
 }
 
 function registerServiceWorker() {
@@ -315,7 +533,8 @@ els.targetButtons.forEach((button) => {
 
 els.listenButton.addEventListener("click", toggleListening);
 els.submitButton.addEventListener("click", submitCommand);
-els.refreshInbox.addEventListener("click", loadQuickCommands);
+els.refreshTasks.addEventListener("click", loadTaskDashboard);
+els.autoRefresh.addEventListener("change", startAutoRefresh);
 
 els.saveSettings.addEventListener("click", async () => {
   const settings = currentSettings();
@@ -325,7 +544,8 @@ els.saveSettings.addEventListener("click", async () => {
   }
   setConnectionState();
   setStatus("设置已保存。", "ok");
-  await loadQuickCommands();
+  await loadTaskDashboard();
+  startAutoRefresh();
 });
 
 els.clearToken.addEventListener("click", () => {
@@ -344,4 +564,5 @@ els.toggleSettings.addEventListener("click", () => {
 applySettings(loadSettings());
 setupSpeech();
 registerServiceWorker();
-loadQuickCommands();
+loadTaskDashboard();
+startAutoRefresh();

@@ -46,6 +46,22 @@
         <p id="submitStatus" class="status-line" role="status"></p>
       </section>
 
+      <section class="progress-panel" aria-labelledby="progressTitle">
+        <div class="section-heading">
+          <h2 id="progressTitle">任务进度</h2>
+          <div class="progress-actions">
+            <label class="auto-refresh">
+              <input id="autoRefresh" type="checkbox" checked>
+              自动
+            </label>
+            <button id="refreshTasks" class="plain-button" type="button">刷新</button>
+          </div>
+        </div>
+        <p id="progressStatus" class="status-line">保存 token 后可以读取任务进度。</p>
+        <div id="taskList" class="task-list" aria-live="polite"></div>
+        <pre id="taskDetail" class="task-detail">选择一条任务查看详情。</pre>
+      </section>
+
       <section class="settings-panel" aria-labelledby="settingsTitle">
         <div class="section-heading">
           <h2 id="settingsTitle">GitHub 提交设置</h2>
@@ -74,14 +90,6 @@
             <button id="clearToken" class="plain-button danger" type="button">清除 Token</button>
           </div>
         </div>
-      </section>
-
-      <section class="recent-panel" aria-labelledby="recentTitle">
-        <div class="section-heading">
-          <h2 id="recentTitle">手机命令</h2>
-          <button id="refreshInbox" class="plain-button" type="button">刷新</button>
-        </div>
-        <pre id="quickCommands" class="quick-list">尚未读取</pre>
       </section>
     </main>
 

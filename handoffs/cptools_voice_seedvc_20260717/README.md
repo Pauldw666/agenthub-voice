@@ -30,31 +30,54 @@ handoffs/cptools_voice_seedvc_20260717/
 │   ├── voice_render.py
 │   ├── voice_seedvc.py
 │   └── voice_volcengine.py
+├── src/
+│   └── cptools/
+│       ├── __init__.py
+│       ├── cli.py
+│       ├── voice.py
+│       ├── voice_app.py
+│       ├── voice_quality.py
+│       ├── voice_render.py
+│       ├── voice_seedvc.py
+│       └── voice_volcengine.py
+├── external/
+│   └── README.md
+├── scripts/
+│   └── fetch_seedvc.ps1
 ├── tests/
 │   └── test_voice*.py
+├── pyproject.toml
 ├── requirements-minimal.txt
 └── README.md
 ```
 
 不要再找完整 CPtools 代码。这个文件夹本身就是 AI 配音的最小可运行项目。
 
+同时保留两套入口：
+
+- 新独立入口：`ai_voice.*`
+- 旧 App 兼容入口：`cptools.voice*`
+
+所以 Win 端旧 App 报 `No module named cptools.voice` 时，拉最新代码后应由 `src/cptools/voice.py` 解决。
+
 ## 已验证状态
 
 Mac 侧已在本交接目录验证：
 
 ```bash
-PYTHONPATH=. pytest -q
+PYTHONPATH=.:src pytest -q
 ```
 
 结果：
 
 ```text
-22 passed in 2.47s
+23 passed
 ```
 
 所以 Win 端验收标准应改为：
 
-- `pytest -q` 通过；
+- `PYTHONPATH=.:src pytest -q` 通过；
+- 旧入口 `python -m cptools voice models` 可用；
 - `python -m ai_voice voice seedvc-status` 显示 Seed-VC ready；
 - 生成一条真实参考音频的样音；
 - 用 `voice quality` 或界面自检看候选结果，不再只靠耳朵盲听。
@@ -73,16 +96,17 @@ cd C:\Users\win\Desktop\Fonts\AI配音相关项目\handoffs\cptools_voice_seedvc
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
 .\.venv\Scripts\pip.exe install -r requirements-minimal.txt
+.\.venv\Scripts\pip.exe install -e .
 ```
 
 运行独立测试：
 
 ```powershell
-$env:PYTHONPATH="."
+$env:PYTHONPATH=".;src"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-预期应是 `22 passed`。如果少量音频相关测试因为没有 ffmpeg 被跳过或失败，先安装 ffmpeg 并确认命令行能直接执行：
+预期应是 `23 passed`。如果少量音频相关测试因为没有 ffmpeg 被跳过或失败，先安装 ffmpeg 并确认命令行能直接执行：
 
 ```powershell
 ffmpeg -version
@@ -96,6 +120,14 @@ ffmpeg -version
 $env:PYTHONPATH="."
 .\.venv\Scripts\python.exe -m ai_voice voice models
 .\.venv\Scripts\python.exe -m ai_voice voice seedvc-status
+```
+
+旧 App / 旧 CPtools 入口也可用：
+
+```powershell
+$env:PYTHONPATH=".;src"
+.\.venv\Scripts\python.exe -m cptools voice models
+.\.venv\Scripts\python.exe -m cptools voice app --open
 ```
 
 生成配音计划：
@@ -123,10 +155,10 @@ $env:PYTHONPATH="."
 
 ## Seed-VC 外部模型
 
-Seed-VC 不放进本项目仓库。它是外部模型工程，建议放在：
+Seed-VC 不放进本项目仓库。它是外部模型工程，Win 端按这个路径放：
 
 ```text
-D:\AI_training\voice_models\seed-vc
+external\seed-vc
 ```
 
 下载地址和安装命令见：
@@ -140,7 +172,7 @@ SEEDVC_DOWNLOAD.md
 ```powershell
 $env:CPTOOLS_SEEDVC_REPO="D:\AI_training\voice_models\seed-vc"
 $env:CPTOOLS_SEEDVC_PYTHON="D:\AI_training\voice_models\seed-vc\.venv-seedvc\Scripts\python.exe"
-$env:PYTHONPATH="."
+$env:PYTHONPATH=".;src"
 .\.venv\Scripts\python.exe -m ai_voice voice seedvc-status
 ```
 
@@ -162,7 +194,8 @@ $env:PYTHONPATH="."
 在 Seed-VC 自己的目录里创建独立环境：
 
 ```powershell
-cd D:\AI_training\voice_models\seed-vc
+.\scripts\fetch_seedvc.ps1
+cd external\seed-vc
 py -3.10 -m venv .venv-seedvc
 .\.venv-seedvc\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
 .\.venv-seedvc\Scripts\pip.exe install -r requirements.txt
@@ -173,9 +206,9 @@ py -3.10 -m venv .venv-seedvc
 验证：
 
 ```powershell
-$env:CPTOOLS_SEEDVC_REPO="D:\AI_training\voice_models\seed-vc"
-$env:CPTOOLS_SEEDVC_PYTHON="D:\AI_training\voice_models\seed-vc\.venv-seedvc\Scripts\python.exe"
-$env:PYTHONPATH="."
+$env:CPTOOLS_SEEDVC_REPO=(Resolve-Path ".\external\seed-vc").Path
+$env:CPTOOLS_SEEDVC_PYTHON=(Resolve-Path ".\external\seed-vc\.venv-seedvc\Scripts\python.exe").Path
+$env:PYTHONPATH=".;src"
 .\.venv\Scripts\python.exe -m ai_voice voice seedvc-status
 ```
 
@@ -209,8 +242,8 @@ Windows 上不要依赖 macOS 的 `say`。真实测试建议使用明确的 `sou
   --engine seedvc_conversion `
   --quality-reference "D:\AI_training\voice_refs\target_template.wav" `
   --quality-threshold 0.80 `
-  --seedvc-repo "D:\AI_training\voice_models\seed-vc" `
-  --seedvc-python "D:\AI_training\voice_models\seed-vc\.venv-seedvc\Scripts\python.exe" `
+  --seedvc-repo ".\external\seed-vc" `
+  --seedvc-python ".\external\seed-vc\.venv-seedvc\Scripts\python.exe" `
   --seedvc-model v2 `
   --seedvc-diffusion-steps 10 `
   --seedvc-similarity 0.85 `

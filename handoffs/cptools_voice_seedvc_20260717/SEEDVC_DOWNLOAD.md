@@ -37,10 +37,9 @@ $env:HF_ENDPOINT="https://hf-mirror.com"
 ## 方式一：Git 克隆源码
 
 ```powershell
-New-Item -ItemType Directory -Force "D:\AI_training\voice_models" | Out-Null
-cd D:\AI_training\voice_models
-git clone https://github.com/Plachtaa/seed-vc.git
-cd seed-vc
+New-Item -ItemType Directory -Force ".\external" | Out-Null
+git clone https://github.com/Plachtaa/seed-vc.git .\external\seed-vc
+cd .\external\seed-vc
 ```
 
 如果要锁到 Mac 侧验证过的版本：
@@ -62,7 +61,7 @@ git checkout 51383ef
 2. 解压到：
 
    ```text
-   D:\AI_training\voice_models\seed-vc
+   当前 AI 配音交接目录\external\seed-vc
    ```
 
 3. 确认这个目录下能看到：
@@ -80,7 +79,7 @@ git checkout 51383ef
 建议 Seed-VC 使用自己的虚拟环境，不要和 AI 配音工具的 `.venv` 混在一起。
 
 ```powershell
-cd D:\AI_training\voice_models\seed-vc
+cd .\external\seed-vc
 py -3.10 -m venv .venv-seedvc
 .\.venv-seedvc\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
 .\.venv-seedvc\Scripts\pip.exe install -r requirements.txt
@@ -100,9 +99,9 @@ $env:HF_ENDPOINT="https://hf-mirror.com"
 
 ```powershell
 cd C:\Users\win\Desktop\Fonts\AI配音相关项目\handoffs\cptools_voice_seedvc_20260717
-$env:PYTHONPATH="."
-$env:CPTOOLS_SEEDVC_REPO="D:\AI_training\voice_models\seed-vc"
-$env:CPTOOLS_SEEDVC_PYTHON="D:\AI_training\voice_models\seed-vc\.venv-seedvc\Scripts\python.exe"
+$env:PYTHONPATH=".;src"
+$env:CPTOOLS_SEEDVC_REPO=(Resolve-Path ".\external\seed-vc").Path
+$env:CPTOOLS_SEEDVC_PYTHON=(Resolve-Path ".\external\seed-vc\.venv-seedvc\Scripts\python.exe").Path
 .\.venv\Scripts\python.exe -m ai_voice voice seedvc-status
 ```
 
@@ -121,4 +120,3 @@ ready_for_cli: True
 3. 压缩包只放源码和必要配置；不要包含 `.venv-seedvc`、`checkpoints`、缓存、音频素材和密钥。
 
 原因：Mac 本机 Seed-VC 目录约 2.9GB，里面包含虚拟环境和模型缓存，直接进 Git 会导致仓库巨大、拉取慢、历史污染，并且第三方源码和模型权重也不应该混进我们的 AI 配音主仓库。
-

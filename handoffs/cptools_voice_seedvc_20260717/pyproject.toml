@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cptools-voice-handoff"
+version = "0.1.0"
+description = "Standalone AI voice dubbing handoff with CPtools voice compatibility imports."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "requests",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
+[project.scripts]
+ai-voice = "ai_voice.cli:main"
+cptools-voice = "cptools.cli:main"
+
+[tool.setuptools.packages.find]
+where = [".", "src"]
+include = ["ai_voice*", "cptools*"]
+

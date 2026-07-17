@@ -1,7 +1,7 @@
 import base64
 import json
 
-from cptools.voice_volcengine import VolcengineCredentials, load_volcengine_credentials, synthesize_seedicl2
+from ai_voice.voice_volcengine import VolcengineCredentials, load_volcengine_credentials, synthesize_seedicl2
 
 
 class FakeResponse:
@@ -36,7 +36,7 @@ def test_synthesize_writes_streamed_audio(monkeypatch, tmp_path):
         captured.update({"url": url, "headers": headers, "json": json, "stream": stream, "timeout": timeout})
         return FakeResponse()
 
-    monkeypatch.setattr("cptools.voice_volcengine.requests.post", fake_post)
+    monkeypatch.setattr("ai_voice.voice_volcengine.requests.post", fake_post)
     output = tmp_path / "out.mp3"
     result = synthesize_seedicl2(
         "测试台词",

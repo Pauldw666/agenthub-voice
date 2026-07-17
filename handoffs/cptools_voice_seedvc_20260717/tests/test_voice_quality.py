@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from cptools.voice_quality import analyze_voice_similarity
+from ai_voice.voice_quality import analyze_voice_similarity
 
 
 def write_tone(path, frequency=220, seconds=0.5, sample_rate=16000):

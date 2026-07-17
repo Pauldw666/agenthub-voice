@@ -2,8 +2,8 @@ import csv
 import json
 from pathlib import Path
 
-from cptools.cli import main
-from cptools.voice import build_voice_plan, provider_config_template, read_voice_script
+from ai_voice.cli import main
+from ai_voice.voice import build_voice_plan, provider_config_template, read_voice_script
 
 
 def test_read_text_script_splits_speakers(tmp_path):

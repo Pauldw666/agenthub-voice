@@ -3,8 +3,8 @@ import shutil
 
 import pytest
 
-from cptools.voice import build_voice_plan
-from cptools.voice_render import (
+from ai_voice.voice import build_voice_plan
+from ai_voice.voice_render import (
     build_self_check_attempt_specs,
     build_self_check_settings,
     build_text_self_check_variants,

@@ -8,7 +8,7 @@ import wave
 
 import pytest
 
-from cptools.voice_app import (
+from ai_voice.voice_app import (
     VoiceAppServer,
     create_reference_template,
     list_audio_references,

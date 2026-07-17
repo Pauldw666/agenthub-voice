@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cptools.voice_seedvc import build_seedvc_command, check_seedvc_ready, seedvc_status_message
+from ai_voice.voice_seedvc import build_seedvc_command, check_seedvc_ready, seedvc_status_message
 
 
 def test_build_seedvc_v2_command_uses_source_target_and_similarity(tmp_path):

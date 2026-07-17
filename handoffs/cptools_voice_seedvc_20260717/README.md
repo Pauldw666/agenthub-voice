@@ -129,6 +129,12 @@ Seed-VC 不放进本项目仓库。它是外部模型工程，建议放在：
 D:\AI_training\voice_models\seed-vc
 ```
 
+下载地址和安装命令见：
+
+```text
+SEEDVC_DOWNLOAD.md
+```
+
 本项目通过环境变量连接它：
 
 ```powershell
@@ -142,20 +148,14 @@ $env:PYTHONPATH="."
 
 ## 如果 Windows 直连 GitHub 443 被阻断
 
-先不要被这个卡住。可选方案按优先级：
+不要按“从 Mac 本地目录拷贝”理解，那只是本机路径，不是 Win 可访问地址。
 
-1. 从 Mac 把已经克隆好的 Seed-VC 目录整体拷到 Windows：
+正确处理方式见 `SEEDVC_DOWNLOAD.md`：
 
-   ```text
-   /Volumes/AI_training/AI项目落地验证/voice_models/seed-vc
-   → D:\AI_training\voice_models\seed-vc
-   ```
-
-2. 如果公司网络有代理，在 Windows 配置 git / pip / huggingface 使用代理。
-3. 如果 HTTPS 被阻断但 SSH 可用，尝试 SSH 克隆。
-4. 实在不行，先用压缩包、移动硬盘或局域网共享拷贝源码和模型缓存。
-
-不要把 Seed-VC 源码、模型权重、音频素材、密钥、虚拟环境提交进这个 AI 配音仓库。
+1. 优先用官方 GitHub / 官方 zip 下载 Seed-VC 源码。
+2. 模型权重由 Seed-VC 首次运行时从 Hugging Face 自动下载。
+3. 如果 Hugging Face 访问慢或不通，使用官方 README 推荐的 `HF_ENDPOINT=https://hf-mirror.com`。
+4. 如果 Win 机器完全访问不了 GitHub/HF，就需要单独的压缩包、Release、网盘或内网文件服务；不要把 Seed-VC、模型权重、虚拟环境塞进这个 AI 配音代码仓库。
 
 ## Seed-VC Windows 环境建议
 
@@ -260,4 +260,3 @@ git config user.email "win@example.com"
 ```
 
 然后再提交。邮箱可以换成实际团队邮箱；不要把密钥、模型、素材提交进去。
-
